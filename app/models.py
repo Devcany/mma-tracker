@@ -26,6 +26,7 @@ class TrainingSession(Base):
     intensity = Column(Integer, nullable=False)  # 1-10
     notes = Column(Text)
     logged_at = Column(DateTime, default=datetime.utcnow)
+    trained_on = Column(DateTime, nullable=True)  # actual training date (voice logs)
 
     athlete = relationship("Athlete", back_populates="sessions")
     rounds = relationship("Round", back_populates="session", cascade="all, delete-orphan")

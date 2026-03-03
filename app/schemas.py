@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, List
 from pydantic import BaseModel, Field
 
@@ -41,6 +41,7 @@ class SessionCreate(BaseModel):
     intensity: int = Field(..., ge=1, le=10)
     notes: Optional[str] = None
     rounds: List[RoundCreate] = []
+    date_override: Optional[date] = None  # voice log: set actual training date
 
 
 class SessionOut(BaseModel):
@@ -51,6 +52,7 @@ class SessionOut(BaseModel):
     intensity: int
     notes: Optional[str]
     logged_at: datetime
+    trained_on: Optional[datetime] = None
     rounds: List[RoundOut] = []
 
     model_config = {"from_attributes": True}

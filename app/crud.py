@@ -22,9 +22,12 @@ def create_athlete(db: Session, athlete: schemas.AthleteCreate):
 
 # Sessions
 def create_session(db: Session, athlete_id: int, session: schemas.SessionCreate):
+    from datetime import datetime
     rounds_data = session.rounds
-    session_data = session.model_dump(exclude={"rounds"})
+    session_data = session.model_dump(exclude={"rounds", "date_override"})
     db_session = models.TrainingSession(athlete_id=athlete_id, **session_data)
+    if session.date_override:
+        db_session.trained_on = datetime.combine(session.date_override, datetime.min.time())
     db.add(db_session)
     db.flush()
 

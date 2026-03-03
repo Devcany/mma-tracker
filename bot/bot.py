@@ -15,6 +15,7 @@ from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     ConversationHandler, filters, ContextTypes
 )
+from .voice import handle_voice
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -30,15 +31,13 @@ DISCIPLINES = ["BJJ", "Boxing", "Wrestling", "Kickboxing", "MMA", "Muay Thai", "
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+from . import api as _api
+
 async def api_get(path: str):
-    async with httpx.AsyncClient() as client:
-        r = await client.get(f"{API_BASE}{path}")
-        return r
+    return await _api.get(path)
 
 async def api_post(path: str, data: dict):
-    async with httpx.AsyncClient() as client:
-        r = await client.post(f"{API_BASE}{path}", json=data)
-        return r
+    return await _api.post(path, data)
 
 
 # ── /start ───────────────────────────────────────────────────────────────────
@@ -204,7 +203,8 @@ async def help_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🦞 *MMA Tracker*\n\n"
         "/start — register\n"
-        "/log — log a session\n"
+        "/log — log a session (guided)\n"
+        "🎙 voice note — auto-log from speech\n"
         "/sessions — last 10 sessions\n"
         "/stats — your training stats\n"
         "/help — this menu",
@@ -240,6 +240,7 @@ def main():
     app.add_handler(CommandHandler("sessions", sessions))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("help", help_cmd))
+    app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
 
     logger.info("Bot running...")
     app.run_polling()
