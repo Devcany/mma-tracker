@@ -1,46 +1,62 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from datetime import date
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session as DBSession
 from . import crud, schemas
 from .database import get_db
 
-router = APIRouter(prefix="/api/v1")
+router = APIRouter()
 
 
-@router.post("/athletes", response_model=schemas.AthleteOut, status_code=201)
-def register_athlete(athlete: schemas.AthleteCreate, db: Session = Depends(get_db)):
-    existing = crud.get_athlete_by_telegram(db, athlete.telegram_id)
-    if existing:
-        raise HTTPException(status_code=409, detail="Athlete already registered")
-    return crud.create_athlete(db, athlete)
+# ── Users ─────────────────────────────────────────────────────────────────────
+
+@router.post("/users", response_model=schemas.UserOut, status_code=201)
+def register_user(user: schemas.UserCreate, db: DBSession = Depends(get_db)):
+    if crud.get_user(db, user.id):
+        raise HTTPException(status_code=409, detail="User already registered")
+    return crud.create_user(db, user)
 
 
-@router.get("/athletes/{telegram_id}", response_model=schemas.AthleteOut)
-def get_athlete(telegram_id: int, db: Session = Depends(get_db)):
-    athlete = crud.get_athlete_by_telegram(db, telegram_id)
-    if not athlete:
-        raise HTTPException(status_code=404, detail="Athlete not found")
-    return athlete
+@router.get("/users/{user_id}", response_model=schemas.UserOut)
+def get_user(user_id: str, db: DBSession = Depends(get_db)):
+    user = crud.get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 
-@router.post("/athletes/{telegram_id}/sessions", response_model=schemas.SessionOut, status_code=201)
-def log_session(telegram_id: int, session: schemas.SessionCreate, db: Session = Depends(get_db)):
-    athlete = crud.get_athlete_by_telegram(db, telegram_id)
-    if not athlete:
-        raise HTTPException(status_code=404, detail="Athlete not found — register first")
-    return crud.create_session(db, athlete.id, session)
+# ── Sessions ──────────────────────────────────────────────────────────────────
+
+@router.post("/sessions", response_model=schemas.SessionOut, status_code=201)
+def create_session(session: schemas.SessionCreate, db: DBSession = Depends(get_db)):
+    if not crud.get_user(db, session.user_id):
+        raise HTTPException(status_code=404, detail="User not found — register first")
+    return crud.create_session(db, session)
 
 
-@router.get("/athletes/{telegram_id}/sessions", response_model=list[schemas.SessionOut])
-def list_sessions(telegram_id: int, limit: int = 20, db: Session = Depends(get_db)):
-    athlete = crud.get_athlete_by_telegram(db, telegram_id)
-    if not athlete:
-        raise HTTPException(status_code=404, detail="Athlete not found")
-    return crud.get_sessions(db, athlete.id, limit)
+@router.get("/sessions/{user_id}", response_model=list[schemas.SessionOut])
+def list_sessions(
+    user_id: str,
+    from_date: Optional[date] = Query(None, alias="from"),
+    to_date: Optional[date] = Query(None, alias="to"),
+    type: Optional[str] = Query(None),
+    limit: int = Query(50, le=200),
+    db: DBSession = Depends(get_db),
+):
+    if not crud.get_user(db, user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+    return crud.get_sessions(db, user_id, from_date, to_date, type, limit)
 
 
-@router.get("/athletes/{telegram_id}/stats", response_model=schemas.AthleteStats)
-def get_stats(telegram_id: int, db: Session = Depends(get_db)):
-    athlete = crud.get_athlete_by_telegram(db, telegram_id)
-    if not athlete:
-        raise HTTPException(status_code=404, detail="Athlete not found")
-    return crud.get_stats(db, athlete.id)
+@router.get("/sessions/{user_id}/last", response_model=schemas.SessionOut)
+def last_session(
+    user_id: str,
+    type: Optional[str] = Query(None),
+    db: DBSession = Depends(get_db),
+):
+    if not crud.get_user(db, user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+    session = crud.get_last_session(db, user_id, type)
+    if not session:
+        raise HTTPException(status_code=404, detail="No sessions found")
+    return session

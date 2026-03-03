@@ -1,67 +1,72 @@
 from datetime import datetime, date
-from typing import Optional, List
+from typing import Optional, Literal
 from pydantic import BaseModel, Field
 
+# Spec-defined session_type enum
+SessionType = Literal[
+    "sparring", "drilling", "clinch", "groundwork",
+    "muay_thai", "wrestling", "bjj", "s&c", "open"
+]
 
-# Athlete
-class AthleteCreate(BaseModel):
-    telegram_id: int
+UserRole = Literal["athlete", "coach"]
+
+
+# ── Users ────────────────────────────────────────────────────────────────────
+
+class UserCreate(BaseModel):
+    id: str                          # Telegram chat_id
     name: str
-    weight_class: Optional[str] = None
+    role: UserRole = "athlete"
 
 
-class AthleteOut(BaseModel):
-    id: int
-    telegram_id: int
+class UserOut(BaseModel):
+    id: str
     name: str
-    weight_class: Optional[str]
+    role: UserRole
     created_at: datetime
 
     model_config = {"from_attributes": True}
 
 
-# Round
-class RoundCreate(BaseModel):
-    round_number: int
-    duration_seconds: int = 300
-    opponent_notes: Optional[str] = None
+# ── Sessions ──────────────────────────────────────────────────────────────────
 
-
-class RoundOut(RoundCreate):
-    id: int
-    session_id: int
-
-    model_config = {"from_attributes": True}
-
-
-# Training Session
 class SessionCreate(BaseModel):
-    discipline: str = Field(..., examples=["BJJ", "Boxing", "Wrestling", "MMA", "Kickboxing"])
-    duration_minutes: int = Field(..., ge=1, le=480)
-    intensity: int = Field(..., ge=1, le=10)
-    notes: Optional[str] = None
-    rounds: List[RoundCreate] = []
-    date_override: Optional[date] = None  # voice log: set actual training date
+    user_id: str
+    date: date
+    session_type: SessionType
+    duration_min: Optional[int] = None
+    rounds: Optional[int] = None
+    intensity_rpe: Optional[int] = Field(None, ge=1, le=10)
+    notes: str = ""
+    raw_input: str                   # always required — original unmodified text
 
 
 class SessionOut(BaseModel):
     id: int
-    athlete_id: int
-    discipline: str
-    duration_minutes: int
-    intensity: int
-    notes: Optional[str]
-    logged_at: datetime
-    trained_on: Optional[datetime] = None
-    rounds: List[RoundOut] = []
+    user_id: str
+    date: date
+    session_type: str
+    duration_min: Optional[int]
+    rounds: Optional[int]
+    intensity_rpe: Optional[int]
+    notes: str
+    raw_input: str
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 
 
-# Stats
-class AthleteStats(BaseModel):
-    total_sessions: int
-    total_minutes: int
-    avg_intensity: float
-    disciplines: dict
-    last_session: Optional[datetime]
+# ── Groups (schema-ready, inactive in MVP) ────────────────────────────────────
+
+class GroupCreate(BaseModel):
+    name: str
+    coach_id: str
+
+
+class GroupOut(BaseModel):
+    id: int
+    name: str
+    coach_id: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

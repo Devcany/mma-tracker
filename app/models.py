@@ -1,44 +1,57 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from .database import Base
 
 
-class Athlete(Base):
-    __tablename__ = "athletes"
+class User(Base):
+    __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    telegram_id = Column(Integer, unique=True, index=True, nullable=False)
-    name = Column(String(100), nullable=False)
-    weight_class = Column(String(50))
+    id = Column(String, primary_key=True)          # Telegram chat_id as TEXT
+    name = Column(String, nullable=False)
+    role = Column(String, nullable=False, default="athlete")  # athlete | coach
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    sessions = relationship("TrainingSession", back_populates="athlete", cascade="all, delete-orphan")
+    sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
+    coached_groups = relationship("Group", back_populates="coach", cascade="all, delete-orphan")
+    group_memberships = relationship("GroupMember", back_populates="user", cascade="all, delete-orphan")
 
 
-class TrainingSession(Base):
-    __tablename__ = "training_sessions"
+class Session(Base):
+    __tablename__ = "sessions"
 
-    id = Column(Integer, primary_key=True, index=True)
-    athlete_id = Column(Integer, ForeignKey("athletes.id"), nullable=False)
-    discipline = Column(String(50), nullable=False)  # BJJ, Boxing, Wrestling, MMA, etc.
-    duration_minutes = Column(Integer, nullable=False)
-    intensity = Column(Integer, nullable=False)  # 1-10
-    notes = Column(Text)
-    logged_at = Column(DateTime, default=datetime.utcnow)
-    trained_on = Column(DateTime, nullable=True)  # actual training date (voice logs)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    date = Column(Date, nullable=False)            # actual training date
+    session_type = Column(String, nullable=False)  # sparring|drilling|clinch|groundwork|muay_thai|wrestling|bjj|s&c|open
+    duration_min = Column(Integer, nullable=True)
+    rounds = Column(Integer, nullable=True)
+    intensity_rpe = Column(Integer, nullable=True) # 1–10
+    notes = Column(Text, nullable=False, default="")
+    raw_input = Column(Text, nullable=False)       # always stored, never modified
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-    athlete = relationship("Athlete", back_populates="sessions")
-    rounds = relationship("Round", back_populates="session", cascade="all, delete-orphan")
+    user = relationship("User", back_populates="sessions")
 
 
-class Round(Base):
-    __tablename__ = "rounds"
+class Group(Base):
+    __tablename__ = "groups"
 
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, ForeignKey("training_sessions.id"), nullable=False)
-    round_number = Column(Integer, nullable=False)
-    duration_seconds = Column(Integer, default=300)  # 5 min default
-    opponent_notes = Column(Text)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    coach_id = Column(String, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-    session = relationship("TrainingSession", back_populates="rounds")
+    coach = relationship("User", back_populates="coached_groups")
+    members = relationship("GroupMember", back_populates="group", cascade="all, delete-orphan")
+
+
+class GroupMember(Base):
+    __tablename__ = "group_members"
+
+    group_id = Column(Integer, ForeignKey("groups.id"), primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"), primary_key=True)
+    joined_at = Column(DateTime, default=datetime.utcnow)
+
+    group = relationship("Group", back_populates="members")
+    user = relationship("User", back_populates="group_memberships")

@@ -1,77 +1,66 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from datetime import date as date_type
+from typing import Optional
+from sqlalchemy.orm import Session as DBSession
 from . import models, schemas
 
 
-# Athlete
-def get_athlete_by_telegram(db: Session, telegram_id: int):
-    return db.query(models.Athlete).filter(models.Athlete.telegram_id == telegram_id).first()
+# ── Users ─────────────────────────────────────────────────────────────────────
+
+def get_user(db: DBSession, user_id: str) -> Optional[models.User]:
+    return db.query(models.User).filter(models.User.id == user_id).first()
 
 
-def get_athlete(db: Session, athlete_id: int):
-    return db.query(models.Athlete).filter(models.Athlete.id == athlete_id).first()
-
-
-def create_athlete(db: Session, athlete: schemas.AthleteCreate):
-    db_athlete = models.Athlete(**athlete.model_dump())
-    db.add(db_athlete)
+def create_user(db: DBSession, user: schemas.UserCreate) -> models.User:
+    db_user = models.User(id=user.id, name=user.name, role=user.role)
+    db.add(db_user)
     db.commit()
-    db.refresh(db_athlete)
-    return db_athlete
+    db.refresh(db_user)
+    return db_user
 
 
-# Sessions
-def create_session(db: Session, athlete_id: int, session: schemas.SessionCreate):
-    from datetime import datetime
-    rounds_data = session.rounds
-    session_data = session.model_dump(exclude={"rounds", "date_override"})
-    db_session = models.TrainingSession(athlete_id=athlete_id, **session_data)
-    if session.date_override:
-        db_session.trained_on = datetime.combine(session.date_override, datetime.min.time())
+def get_or_create_user(db: DBSession, user_id: str, name: str, role: str = "athlete") -> tuple[models.User, bool]:
+    """Returns (user, created). Safe to call on every message."""
+    user = get_user(db, user_id)
+    if user:
+        return user, False
+    user = create_user(db, schemas.UserCreate(id=user_id, name=name, role=role))
+    return user, True
+
+
+# ── Sessions ──────────────────────────────────────────────────────────────────
+
+def create_session(db: DBSession, session: schemas.SessionCreate) -> models.Session:
+    db_session = models.Session(**session.model_dump())
     db.add(db_session)
-    db.flush()
-
-    for r in rounds_data:
-        db_round = models.Round(session_id=db_session.id, **r.model_dump())
-        db.add(db_round)
-
     db.commit()
     db.refresh(db_session)
     return db_session
 
 
-def get_sessions(db: Session, athlete_id: int, limit: int = 20):
-    return (
-        db.query(models.TrainingSession)
-        .filter(models.TrainingSession.athlete_id == athlete_id)
-        .order_by(models.TrainingSession.logged_at.desc())
-        .limit(limit)
-        .all()
-    )
+def get_sessions(
+    db: DBSession,
+    user_id: str,
+    from_date: Optional[date_type] = None,
+    to_date: Optional[date_type] = None,
+    session_type: Optional[str] = None,
+    limit: int = 50,
+) -> list[models.Session]:
+    q = db.query(models.Session).filter(models.Session.user_id == user_id)
+    if from_date:
+        q = q.filter(models.Session.date >= from_date)
+    if to_date:
+        q = q.filter(models.Session.date <= to_date)
+    if session_type:
+        q = q.filter(models.Session.session_type == session_type)
+    return q.order_by(models.Session.date.desc(), models.Session.created_at.desc()).limit(limit).all()
 
 
-def get_stats(db: Session, athlete_id: int) -> schemas.AthleteStats:
-    sessions = db.query(models.TrainingSession).filter(
-        models.TrainingSession.athlete_id == athlete_id
-    ).all()
-
-    if not sessions:
-        return schemas.AthleteStats(
-            total_sessions=0, total_minutes=0, avg_intensity=0.0,
-            disciplines={}, last_session=None
-        )
-
-    total_minutes = sum(s.duration_minutes for s in sessions)
-    avg_intensity = sum(s.intensity for s in sessions) / len(sessions)
-    disciplines = {}
-    for s in sessions:
-        disciplines[s.discipline] = disciplines.get(s.discipline, 0) + 1
-    last_session = max(s.logged_at for s in sessions)
-
-    return schemas.AthleteStats(
-        total_sessions=len(sessions),
-        total_minutes=total_minutes,
-        avg_intensity=round(avg_intensity, 1),
-        disciplines=disciplines,
-        last_session=last_session,
-    )
+def get_last_session(
+    db: DBSession,
+    user_id: str,
+    session_type: Optional[str] = None,
+) -> Optional[models.Session]:
+    q = db.query(models.Session).filter(models.Session.user_id == user_id)
+    if session_type:
+        q = q.filter(models.Session.session_type == session_type)
+    return q.order_by(models.Session.date.desc(), models.Session.created_at.desc()).first()
