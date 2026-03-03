@@ -16,7 +16,7 @@ from . import api, nlu
 
 logger = logging.getLogger(__name__)
 
-_whisper = WhisperModel("tiny", device="cpu", compute_type="int8")
+_whisper = WhisperModel("small", device="cpu", compute_type="int8")
 _executor = ThreadPoolExecutor(max_workers=1)
 
 
