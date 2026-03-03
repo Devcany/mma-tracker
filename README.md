@@ -44,3 +44,20 @@ cp .env.example .env  # add your bot token
 - `/sessions` — last 10 sessions
 - `/stats` — training stats
 - `/help` — command list
+
+## Systemd Services
+
+Both processes run as systemd services with auto-restart.
+
+```bash
+# Install (one-time)
+cp mma-api.service mma-bot.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable mma-api mma-bot
+systemctl start mma-api mma-bot
+
+# Manage
+systemctl status mma-api mma-bot
+systemctl restart mma-bot
+journalctl -u mma-bot -f      # or: tail -f /var/log/mma-bot.log
+```

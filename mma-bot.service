@@ -1,0 +1,19 @@
+[Unit]
+Description=MMA Tracker — Telegram Bot (KLAW)
+After=network.target mma-api.service
+Wants=network.target
+Requires=mma-api.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/mma-tracker
+EnvironmentFile=/root/mma-tracker/.env
+ExecStart=/root/mma-tracker/venv/bin/python -m bot.bot
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/mma-bot.log
+StandardError=append:/var/log/mma-bot.log
+
+[Install]
+WantedBy=multi-user.target

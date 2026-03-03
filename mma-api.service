@@ -1,0 +1,17 @@
+[Unit]
+Description=MMA Tracker — FastAPI
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/mma-tracker
+ExecStart=/root/mma-tracker/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/mma-api.log
+StandardError=append:/var/log/mma-api.log
+
+[Install]
+WantedBy=multi-user.target
