@@ -214,6 +214,17 @@ async def help_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+async def error_handler(update: object, ctx: ContextTypes.DEFAULT_TYPE):
+    from telegram.error import Conflict, NetworkError, TimedOut
+    # These are transient infra errors — log quietly, don't alert the user
+    if isinstance(ctx.error, (Conflict, NetworkError, TimedOut)):
+        logger.warning(f"Transient error (ignored): {ctx.error}")
+        return
+    logger.exception(f"Unhandled exception: {ctx.error}", exc_info=ctx.error)
+    if isinstance(update, Update) and update.effective_message:
+        await update.effective_message.reply_text(f"❌ Unexpected error: {type(ctx.error).__name__}: {ctx.error}")
+
+
 def main():
     token = BOT_TOKEN
     if not token:
@@ -241,6 +252,7 @@ def main():
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
+    app.add_error_handler(error_handler)
 
     logger.info("Bot running...")
     app.run_polling()
