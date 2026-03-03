@@ -2,6 +2,7 @@ from datetime import date
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session as DBSession
+from pydantic import BaseModel
 from . import crud, schemas
 from .database import get_db
 
@@ -20,6 +21,18 @@ def register_user(user: schemas.UserCreate, db: DBSession = Depends(get_db)):
 @router.get("/users/{user_id}", response_model=schemas.UserOut)
 def get_user(user_id: str, db: DBSession = Depends(get_db)):
     user = crud.get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+class RoleUpdate(BaseModel):
+    role: schemas.UserRole
+
+
+@router.patch("/users/{user_id}/role", response_model=schemas.UserOut)
+def update_role(user_id: str, body: RoleUpdate, db: DBSession = Depends(get_db)):
+    user = crud.update_user_role(db, user_id, body.role)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user

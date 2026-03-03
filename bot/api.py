@@ -12,3 +12,8 @@ async def get(path: str):
 async def post(path: str, data: dict):
     async with httpx.AsyncClient() as client:
         return await client.post(f"{API_BASE}{path}", json=data)
+
+
+async def patch(path: str, data: dict):
+    async with httpx.AsyncClient() as client:
+        return await client.patch(f"{API_BASE}{path}", json=data)

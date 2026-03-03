@@ -18,6 +18,16 @@ def create_user(db: DBSession, user: schemas.UserCreate) -> models.User:
     return db_user
 
 
+def update_user_role(db: DBSession, user_id: str, role: str) -> Optional[models.User]:
+    user = get_user(db, user_id)
+    if not user:
+        return None
+    user.role = role
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def get_or_create_user(db: DBSession, user_id: str, name: str, role: str = "athlete") -> tuple[models.User, bool]:
     """Returns (user, created). Safe to call on every message."""
     user = get_user(db, user_id)

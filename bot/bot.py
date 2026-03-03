@@ -199,6 +199,32 @@ async def cmd_week(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _handle_query_week(update, str(update.effective_user.id))
 
 
+# ── /setrole ──────────────────────────────────────────────────────────────────
+
+async def cmd_setrole(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = str(update.effective_user.id)
+
+    # Must be registered first
+    r = await api.get(f"/users/{uid}")
+    if r.status_code == 404:
+        await update.message.reply_text("Not registered. Use /start first.")
+        return
+
+    if not ctx.args or ctx.args[0].lower() not in ("athlete", "coach"):
+        await update.message.reply_text(
+            "Usage: /setrole coach  or  /setrole athlete"
+        )
+        return
+
+    role = ctx.args[0].lower()
+    r = await api.patch(f"/users/{uid}/role", {"role": role})
+    if r.status_code == 200:
+        await update.message.reply_text(f"Role updated: {role} ✅")
+    else:
+        detail = r.json().get("detail", "unknown error")
+        await update.message.reply_text(f"❌ Failed: {detail}")
+
+
 # ── /help ─────────────────────────────────────────────────────────────────────
 
 async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -213,6 +239,7 @@ async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "/last — last session\n"
         "/last sparring — last sparring session\n"
         "/week — this week's sessions\n"
+        "/setrole coach — become a coach\n"
         "/help — this message",
         parse_mode="Markdown"
     )
@@ -242,6 +269,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("last", cmd_last))
     app.add_handler(CommandHandler("week", cmd_week))
+    app.add_handler(CommandHandler("setrole", cmd_setrole))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
